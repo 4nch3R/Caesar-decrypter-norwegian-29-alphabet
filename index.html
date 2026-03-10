@@ -134,8 +134,12 @@ function analyze() {
 // Tegn graf med Chart.js
 // ---------------------------
 function drawChart(labels, data) {
-    const ctx = document.getElementById("chart").getContext("2d");
-    if (chartInstance) chartInstance.destroy();
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
 
     chartInstance = new Chart(ctx, {
         type: "bar",
