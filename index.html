@@ -11,16 +11,33 @@
 
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
+    <div class="app-shell">
+        <div class="app-card">
+            <div class="hero">
+                <p class="eyebrow">Kryptografi-verktøy</p>
+                <h1>Caesar-dekryptering med norsk alfabet</h1>
+                <p class="subtitle">
+                    Skriv inn kryptert tekst og analyser alle mulige Caesar-skift i det norske alfabetet, inkludert Æ, Ø og Å.
+                </p>
+            </div>
 
-<h2>Caesar-dekryptering med norsk alfabet</h2>
+            <div class="input-section">
+                <label for="cipher">Kryptert tekst</label>
+                <div class="input-row">
+                    <input id="cipher" type="text" placeholder="f.eks. OFLJWKQDLJW">
+                    <button onclick="analyze()">Analyser</button>
+                </div>
+            </div>
 
-<label for="cipher">Kryptert tekst:</label><br>
-<input id="cipher" type="text" placeholder="f.eks. OFLJWKQDLJW">
-<button onclick="analyze()">Analyser</button>
+            <div class="chart-section">
+                <canvas id="chart"></canvas>
+            </div>
 
-<canvas id="chart" width="600" height="300"></canvas>
-<div id="output"></div>
+            <div id="output" class="output-card"></div>
+        </div>
+    </div>
 
 <script>
 // Norsk alfabet med Æ Ø Å
@@ -46,7 +63,7 @@ function caesarDecrypt(text, shift) {
     return text.split("").map(c => {
         const upperC = c.toUpperCase();
         const index = norwegianAlphabet.indexOf(upperC);
-        if (index === -1) return c; // behold andre tegn
+        if (index === -1) return c;
         const newIndex = (index - shift + alphabetLength) % alphabetLength;
         return norwegianAlphabet[newIndex];
     }).join("");
@@ -62,7 +79,6 @@ function bestSubstringMatch(word) {
     norwegianWordsSet.forEach(ow => {
         const o = ow.toLowerCase();
 
-        // Hele ord matcher → 100 %
         if (w === o) {
             maxScore = 100;
             return;
@@ -94,7 +110,7 @@ function analyze() {
     const labels = [];
     const probabilities = [];
 
-    for (let s = 1; s <= alphabetLength - 1; s++) { // 1 til 28 for norsk alfabet
+    for (let s = 1; s <= alphabetLength - 1; s++) {
         const plain = caesarDecrypt(cipher, s);
         const score = bestSubstringMatch(plain);
 
@@ -106,9 +122,9 @@ function analyze() {
     const best = shifts.reduce((a, b) => a.probability > b.probability ? a : b);
 
     document.getElementById("output").innerHTML =
-        `<h3>Mest sannsynlige dekryptering:</h3>
-        <p><b>${best.text}</b> (Shift ${best.shift}, score ${best.probability.toFixed(1)}%)</p>
-        <h3>Alle dekrypteringer:</h3>
+        `<h3>Mest sannsynlige dekryptering</h3>
+        <p><strong>${best.text}</strong> (Shift ${best.shift}, score ${best.probability.toFixed(1)}%)</p>
+        <h3>Alle dekrypteringer</h3>
         <pre>${shifts.map(s => `${s.shift}: ${s.text}  [${s.probability.toFixed(1)}%]`).join("\n")}</pre>`;
 
     drawChart(labels, probabilities);
@@ -128,16 +144,43 @@ function drawChart(labels, data) {
             datasets: [{
                 label: "Prosent match med ordliste",
                 data: data,
-                backgroundColor: "rgba(54, 162, 235, 0.7)"
+                backgroundColor: "rgba(79, 70, 229, 0.75)",
+                borderRadius: 8
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: "#334155"
+                    }
+                }
+            },
             scales: {
+                x: {
+                    ticks: {
+                        color: "#475569"
+                    },
+                    grid: {
+                        display: false
+                    }
+                },
                 y: {
                     beginAtZero: true,
                     max: 100,
-                    title: { display: true, text: "Prosent (%)" }
+                    ticks: {
+                        color: "#475569"
+                    },
+                    title: {
+                        display: true,
+                        text: "Prosent (%)",
+                        color: "#334155"
+                    },
+                    grid: {
+                        color: "rgba(148, 163, 184, 0.2)"
+                    }
                 }
             }
         }
