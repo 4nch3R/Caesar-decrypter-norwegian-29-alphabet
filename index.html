@@ -18,14 +18,14 @@
                 <p class="eyebrow">Kryptografi-verktøy</p>
                 <h1>Caesar-dekryptering med norsk alfabet</h1>
                 <p class="subtitle">
-                    Skriv inn ett ord eller en hel setning. Verktøyet prøver alle Caesar-skift i det norske alfabetet, inkludert Æ, Ø og Å.
+                    Skriv inn ett ord eller en setning. Verktøyet prøver alle Caesar-skift i det norske alfabetet, inkludert Æ, Ø og Å.
                 </p>
             </div>
 
             <div class="input-section">
                 <label for="cipher">Kryptert tekst</label>
                 <div class="input-row">
-                    <input id="cipher" type="text" placeholder="f.eks. OFLJWKQDLJW eller en hel setning">
+                    <input id="cipher" type="text" placeholder="f.eks. Mhj hu nxo">
                     <button onclick="analyze()">Analyser</button>
                 </div>
             </div>
@@ -43,10 +43,27 @@
 const norwegianAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ";
 const alphabetLength = norwegianAlphabet.length;
 
-let norwegianWordsSet = new Set();
-let norwegianWordsArray = [];
-
+let dictionaryLineSet = new Set();   // Hele linjer / fraser
+let dictionaryWordSet = new Set();   // Enkeltord
+let dictionaryWordsArray = [];       // For delmatch
 let chartInstance = null;
+
+// ---------------------------
+// Normalisering
+// ---------------------------
+function normalizeText(text) {
+    return text
+        .toUpperCase()
+        .replace(/[^A-ZÆØÅ0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function extractWords(text) {
+    const normalized = normalizeText(text);
+    if (!normalized) return [];
+    return normalized.split(" ").filter(Boolean);
+}
 
 // ---------------------------
 // Last inn ordlisten
@@ -54,16 +71,31 @@ let chartInstance = null;
 fetch("ordliste.txt")
     .then(response => response.text())
     .then(data => {
-        norwegianWordsArray = data
-            .split(/\r?\n/)
-            .map(w => w.trim().toLowerCase())
+        const rawLines = data.split(/\r?\n/);
+
+        const normalizedLines = rawLines
+            .map(line => normalizeText(line))
             .filter(Boolean);
 
-        norwegianWordsSet = new Set(norwegianWordsArray);
-        console.log("Ordbok lastet:", norwegianWordsSet.size, "ord");
+        dictionaryLineSet = new Set(normalizedLines);
+
+        const wordSet = new Set();
+        for (const line of normalizedLines) {
+            const words = extractWords(line);
+            for (const word of words) {
+                wordSet.add(word);
+            }
+        }
+
+        dictionaryWordSet = wordSet;
+        dictionaryWordsArray = Array.from(dictionaryWordSet);
+
+        console.log("Ordliste lastet:");
+        console.log("- Linjer/fraseoppføringer:", dictionaryLineSet.size);
+        console.log("- Unike ord:", dictionaryWordSet.size);
     })
     .catch(error => {
-        console.error("Kunne ikke laste ordliste:", error);
+        console.error("Kunne ikke laste ordliste.txt:", error);
         document.getElementById("output").innerHTML =
             "<p><strong>Feil:</strong> Kunne ikke laste ordliste.txt.</p>";
     });
@@ -76,9 +108,7 @@ function caesarDecrypt(text, shift) {
         const upperChar = char.toUpperCase();
         const index = norwegianAlphabet.indexOf(upperChar);
 
-        if (index === -1) {
-            return char; // behold mellomrom, tegnsetting osv.
-        }
+        if (index === -1) return char;
 
         const newIndex = (index - shift + alphabetLength) % alphabetLength;
         return norwegianAlphabet[newIndex];
@@ -86,174 +116,136 @@ function caesarDecrypt(text, shift) {
 }
 
 // ---------------------------
-// Rens tekst og hent ord
+// Enkel delmatch for ett ord
+// Bare brukt hvis ordet ikke matcher eksakt
 // ---------------------------
-function extractWords(text) {
-    return text
-        .toLowerCase()
-        .replace(/[^a-zæøå0-9\s]/gi, " ")
-        .split(/\s+/)
-        .map(word => word.trim())
-        .filter(Boolean);
-}
+function getPartialWordScore(word) {
+    if (!word || word.length < 3) return 0;
 
-// ---------------------------
-// Matchscore for ett ord
-// ---------------------------
-function getWordScore(word) {
-    const w = word.toLowerCase();
+    let bestScore = 0;
 
-    if (!w) return 0;
+    for (const dictWord of dictionaryWordsArray) {
+        if (dictWord.length < 3) continue;
 
-    // Hele ord matcher
-    if (norwegianWordsSet.has(w)) {
-        return 100;
-    }
+        // Eksakt match håndteres et annet sted
+        if (word === dictWord) return 100;
 
-    let maxScore = 0;
+        // Kandidatord inneholder et ordboksord
+        if (word.includes(dictWord)) {
+            const score = (dictWord.length / word.length) * 100;
+            if (score > bestScore) bestScore = score;
+        }
 
-    for (const dictWord of norwegianWordsArray) {
-        // Hvis ordboksordet er lengre enn ordet, hopp over
-        if (dictWord.length > w.length) continue;
-
-        // Delmatch: ordet inneholder et kjent ord
-        for (let i = 0; i <= w.length - dictWord.length; i++) {
-            const sub = w.substring(i, i + dictWord.length);
-            if (sub === dictWord) {
-                const score = (dictWord.length / w.length) * 100;
-                if (score > maxScore) {
-                    maxScore = score;
-                }
-            }
+        // Ordboksord inneholder kandidatord
+        if (dictWord.includes(word)) {
+            const score = (word.length / dictWord.length) * 100;
+            if (score > bestScore) bestScore = score;
         }
     }
 
-    return maxScore;
+    // Ikke stol på veldig svake deltreff
+    if (bestScore < 60) return 0;
+
+    return bestScore;
 }
 
 // ---------------------------
-// Analyser hel tekst (enkeltord eller setning)
+// Score hel kandidattekst
 // ---------------------------
-function analyzePlaintext(text) {
+function scoreCandidateText(text) {
+    const normalizedText = normalizeText(text);
     const words = extractWords(text);
 
-    // Hvis ingen ord ble funnet, returner 0
-    if (words.length === 0) {
+    if (!normalizedText || words.length === 0) {
         return {
             score: 0,
-            fullMatches: 0,
-            partialMatches: 0,
+            exactLineMatch: false,
+            allWordsExact: false,
+            exactWords: 0,
+            partialWords: 0,
             totalWords: 0,
-            matchedWords: []
+            details: []
         };
     }
 
-    let totalScore = 0;
-    let fullMatches = 0;
-    let partialMatches = 0;
-    const matchedWords = [];
+    // 1) Eksakt hel-linje-match = 100 %
+    if (dictionaryLineSet.has(normalizedText)) {
+        return {
+            score: 100,
+            exactLineMatch: true,
+            allWordsExact: true,
+            exactWords: words.length,
+            partialWords: 0,
+            totalWords: words.length,
+            details: words.map(w => `${w} (100%)`)
+        };
+    }
+
+    // 2) Hvis alle ord matcher eksakt = 100 %
+    const allWordsAreExact = words.every(word => dictionaryWordSet.has(word));
+    if (allWordsAreExact) {
+        return {
+            score: 100,
+            exactLineMatch: false,
+            allWordsExact: true,
+            exactWords: words.length,
+            partialWords: 0,
+            totalWords: words.length,
+            details: words.map(w => `${w} (100%)`)
+        };
+    }
+
+    // 3) Ellers: vekting per ordlengde
+    let totalWeight = 0;
+    let earnedWeight = 0;
+    let exactWords = 0;
+    let partialWords = 0;
+    const details = [];
 
     for (const word of words) {
-        const score = getWordScore(word);
-        totalScore += score;
+        const weight = Math.max(word.length, 1);
+        totalWeight += weight;
 
-        if (score === 100) {
-            fullMatches++;
-            matchedWords.push(`${word} (100%)`);
-        } else if (score > 0) {
-            partialMatches++;
-            matchedWords.push(`${word} (${score.toFixed(1)}%)`);
+        if (dictionaryWordSet.has(word)) {
+            exactWords++;
+            earnedWeight += weight;
+            details.push(`${word} (100%)`);
+            continue;
+        }
+
+        const partialScore = getPartialWordScore(word);
+
+        if (partialScore > 0) {
+            partialWords++;
+            // Deltreff teller, men mye svakere enn eksakt treff
+            earnedWeight += weight * (partialScore / 100) * 0.45;
+            details.push(`${word} (${partialScore.toFixed(1)}%)`);
+        } else {
+            details.push(`${word} (0%)`);
         }
     }
 
-    const averageScore = totalScore / words.length;
+    let finalScore = totalWeight > 0 ? (earnedWeight / totalWeight) * 100 : 0;
 
-    // Bonus for mange fulltreff i en setning
-    const fullMatchRatio = fullMatches / words.length;
-    const bonus = fullMatchRatio * 20;
+    // Liten bonus hvis mange ord er eksakte
+    const exactRatio = exactWords / words.length;
+    finalScore += exactRatio * 10;
 
-    const finalScore = Math.min(100, averageScore + bonus);
+    if (finalScore > 100) finalScore = 100;
 
     return {
         score: finalScore,
-        fullMatches,
-        partialMatches,
+        exactLineMatch: false,
+        allWordsExact: false,
+        exactWords,
+        partialWords,
         totalWords: words.length,
-        matchedWords
+        details
     };
 }
 
 // ---------------------------
-// Analysefunksjon
-// ---------------------------
-function analyze() {
-    const cipher = document.getElementById("cipher").value.trim().toUpperCase();
-
-    if (!cipher) {
-        document.getElementById("output").innerHTML =
-            "<p>Skriv inn noe tekst først.</p>";
-        return;
-    }
-
-    if (norwegianWordsSet.size === 0) {
-        document.getElementById("output").innerHTML =
-            "<p>Ordliste er ikke lastet ennå. Prøv igjen om et øyeblikk.</p>";
-        return;
-    }
-
-    const shifts = [];
-    const labels = [];
-    const probabilities = [];
-
-    for (let s = 1; s <= alphabetLength - 1; s++) {
-        const plain = caesarDecrypt(cipher, s);
-        const analysis = analyzePlaintext(plain);
-
-        shifts.push({
-            shift: s,
-            text: plain,
-            probability: analysis.score,
-            fullMatches: analysis.fullMatches,
-            partialMatches: analysis.partialMatches,
-            totalWords: analysis.totalWords,
-            matchedWords: analysis.matchedWords
-        });
-
-        labels.push("Shift " + s);
-        probabilities.push(Number(analysis.score.toFixed(1)));
-    }
-
-    shifts.sort((a, b) => b.probability - a.probability);
-    const best = shifts[0];
-
-    document.getElementById("output").innerHTML = `
-        <h3>Mest sannsynlige dekryptering</h3>
-        <p>
-            <strong>${escapeHtml(best.text)}</strong><br>
-            Shift ${best.shift} · score ${best.probability.toFixed(1)}%<br>
-            Hele ord funnet: ${best.fullMatches}/${best.totalWords} ·
-            Deltreff: ${best.partialMatches}
-        </p>
-
-        <h3>Matchende ord</h3>
-        <p>${best.matchedWords.length ? escapeHtml(best.matchedWords.join(", ")) : "Ingen tydelige ordtreff"}</p>
-
-        <h3>Topp 10 dekrypteringer</h3>
-        <pre>${escapeHtml(
-            shifts
-                .slice(0, 10)
-                .map(s =>
-                    `${s.shift}: ${s.text}  [${s.probability.toFixed(1)}% | hele ord: ${s.fullMatches}/${s.totalWords} | deltreff: ${s.partialMatches}]`
-                )
-                .join("\n")
-        )}</pre>
-    `;
-
-    drawChart(labels, probabilities, shifts);
-}
-
-// ---------------------------
-// Sikre output mot HTML-tegn
+// HTML-escaping
 // ---------------------------
 function escapeHtml(text) {
     return text
@@ -263,42 +255,107 @@ function escapeHtml(text) {
 }
 
 // ---------------------------
+// Analysefunksjon
+// ---------------------------
+function analyze() {
+    const cipherInput = document.getElementById("cipher").value.trim();
+
+    if (!cipherInput) {
+        document.getElementById("output").innerHTML = "<p>Skriv inn tekst først.</p>";
+        return;
+    }
+
+    if (dictionaryWordSet.size === 0 && dictionaryLineSet.size === 0) {
+        document.getElementById("output").innerHTML =
+            "<p>Ordliste er ikke lastet ennå. Prøv igjen om et øyeblikk.</p>";
+        return;
+    }
+
+    const shifts = [];
+    const labels = [];
+    const probabilities = [];
+
+    // Merk: nå tester vi også shift 0
+    for (let shift = 0; shift < alphabetLength; shift++) {
+        const plain = caesarDecrypt(cipherInput, shift);
+        const analysis = scoreCandidateText(plain);
+
+        shifts.push({
+            shift,
+            text: plain,
+            probability: analysis.score,
+            exactLineMatch: analysis.exactLineMatch,
+            allWordsExact: analysis.allWordsExact,
+            exactWords: analysis.exactWords,
+            partialWords: analysis.partialWords,
+            totalWords: analysis.totalWords,
+            details: analysis.details
+        });
+
+        labels.push("Shift " + shift);
+        probabilities.push(Number(analysis.score.toFixed(1)));
+    }
+
+    // Sorter etter høyest score
+    const ranked = [...shifts].sort((a, b) => b.probability - a.probability);
+    const best = ranked[0];
+
+    document.getElementById("output").innerHTML = `
+        <h3>Mest sannsynlige dekryptering</h3>
+        <p>
+            <strong>${escapeHtml(best.text)}</strong><br>
+            Shift ${best.shift} · score ${best.probability.toFixed(1)}%
+        </p>
+
+        <p>
+            Eksakte ord: ${best.exactWords}/${best.totalWords}<br>
+            Deltreff: ${best.partialWords}<br>
+            Eksakt frasematch: ${best.exactLineMatch ? "Ja" : "Nei"}<br>
+            Alle ord eksakte: ${best.allWordsExact ? "Ja" : "Nei"}
+        </p>
+
+        <h3>Ordvurdering</h3>
+        <p>${escapeHtml(best.details.join(", "))}</p>
+
+        <h3>Topp 10 dekrypteringer</h3>
+        <pre>${escapeHtml(
+            ranked
+                .slice(0, 10)
+                .map(item =>
+                    `${item.shift}: ${item.text}  [${item.probability.toFixed(1)}% | eksakte ord: ${item.exactWords}/${item.totalWords} | deltreff: ${item.partialWords}]`
+                )
+                .join("\n")
+        )}</pre>
+    `;
+
+    drawChart(shifts, best.shift);
+}
+
+// ---------------------------
 // Tegn graf med Chart.js
 // ---------------------------
-function drawChart(originalLabels, originalData, sortedShifts) {
+function drawChart(shiftResults, bestShift) {
     const ctx = document.getElementById("chart").getContext("2d");
 
     if (chartInstance) {
         chartInstance.destroy();
     }
 
-    // Vi vil vise i naturlig shift-rekkefølge i grafen
-    const labels = [];
-    const data = [];
-    const bestShift = sortedShifts[0].shift;
-
-    for (let s = 1; s <= alphabetLength - 1; s++) {
-        const found = sortedShifts.find(item => item.shift === s);
-        labels.push("Shift " + s);
-        data.push(found ? Number(found.probability.toFixed(1)) : 0);
-    }
-
-    const backgroundColors = [];
-    for (let s = 1; s <= alphabetLength - 1; s++) {
-        if (s === bestShift) {
-            backgroundColors.push("rgba(16, 185, 129, 0.85)");
-        } else {
-            backgroundColors.push("rgba(79, 70, 229, 0.75)");
-        }
-    }
+    const labels = shiftResults.map(item => `Shift ${item.shift}`);
+    const data = shiftResults.map(item => Number(item.probability.toFixed(1)));
+    const backgroundColors = shiftResults.map(item =>
+        item.shift === bestShift
+            ? "rgba(16, 185, 129, 0.85)"
+            : "rgba(79, 70, 229, 0.75)"
+    );
 
     chartInstance = new Chart(ctx, {
         type: "bar",
         data: {
-            labels: labels,
+            labels,
             datasets: [{
                 label: "Sannsynlighet basert på ordtreff",
-                data: data,
+                data,
                 backgroundColor: backgroundColors,
                 borderRadius: 8,
                 borderSkipped: false
