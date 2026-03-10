@@ -134,12 +134,8 @@ function analyze() {
 // Tegn graf med Chart.js
 // ---------------------------
 function drawChart(labels, data) {
-    const canvas = document.getElementById("chart");
-    const ctx = canvas.getContext("2d");
-
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
+    const ctx = document.getElementById("chart").getContext("2d");
+    if (chartInstance) chartInstance.destroy();
 
     chartInstance = new Chart(ctx, {
         type: "bar",
@@ -149,42 +145,18 @@ function drawChart(labels, data) {
                 label: "Prosent match med ordliste",
                 data: data,
                 backgroundColor: "rgba(79, 70, 229, 0.75)",
-                borderRadius: 8
+                borderRadius: 8,
+                borderSkipped: false
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: "#334155"
-                    }
-                }
-            },
             scales: {
-                x: {
-                    ticks: {
-                        color: "#475569"
-                    },
-                    grid: {
-                        display: false
-                    }
-                },
                 y: {
                     beginAtZero: true,
                     max: 100,
-                    ticks: {
-                        color: "#475569"
-                    },
-                    title: {
-                        display: true,
-                        text: "Prosent (%)",
-                        color: "#334155"
-                    },
-                    grid: {
-                        color: "rgba(148, 163, 184, 0.2)"
-                    }
+                    title: { display: true, text: "Prosent (%)" }
                 }
             }
         }
