@@ -39,13 +39,12 @@
     </div>
 
 <script>
-// Norsk alfabet med Æ Ø Å
 const norwegianAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ";
 const alphabetLength = norwegianAlphabet.length;
 
-let dictionaryLineSet = new Set();   // Hele linjer / fraser
-let dictionaryWordSet = new Set();   // Enkeltord
-let dictionaryWordsArray = [];       // For delmatch
+let dictionaryLineSet = new Set();   // hele fraser
+let dictionaryWordSet = new Set();   // enkeltord
+let dictionaryWordsArray = [];       // for streng delmatch på lange ord
 let chartInstance = null;
 
 // ---------------------------
@@ -63,6 +62,13 @@ function extractWords(text) {
     const normalized = normalizeText(text);
     if (!normalized) return [];
     return normalized.split(" ").filter(Boolean);
+}
+
+function escapeHtml(text) {
+    return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
 }
 
 // ---------------------------
@@ -91,7 +97,7 @@ fetch("ordliste.txt")
         dictionaryWordsArray = Array.from(dictionaryWordSet);
 
         console.log("Ordliste lastet:");
-        console.log("- Linjer/fraseoppføringer:", dictionaryLineSet.size);
+        console.log("- Fraser:", dictionaryLineSet.size);
         console.log("- Unike ord:", dictionaryWordSet.size);
     })
     .catch(error => {
@@ -116,41 +122,52 @@ function caesarDecrypt(text, shift) {
 }
 
 // ---------------------------
-// Enkel delmatch for ett ord
-// Bare brukt hvis ordet ikke matcher eksakt
+// Streng delmatch for LANGE ord
+// Brukes bare som svak bonus
 // ---------------------------
-function getPartialWordScore(word) {
-    if (!word || word.length < 3) return 0;
+function getStrictPartialWordScore(word) {
+    const w = word.toUpperCase();
+
+    // Ikke bruk deltreff for korte ord
+    if (w.length < 5) return 0;
 
     let bestScore = 0;
 
     for (const dictWord of dictionaryWordsArray) {
-        if (dictWord.length < 3) continue;
+        // Ikke bruk korte ordboksord her heller
+        if (dictWord.length < 4) continue;
 
-        // Eksakt match håndteres et annet sted
-        if (word === dictWord) return 100;
+        // Ikke eksakt match her
+        if (w === dictWord) continue;
 
-        // Kandidatord inneholder et ordboksord
-        if (word.includes(dictWord)) {
-            const score = (dictWord.length / word.length) * 100;
-            if (score > bestScore) bestScore = score;
-        }
+        // Lengdene må være ganske like
+        if (Math.abs(w.length - dictWord.length) > 2) continue;
 
-        // Ordboksord inneholder kandidatord
-        if (dictWord.includes(word)) {
-            const score = (word.length / dictWord.length) * 100;
-            if (score > bestScore) bestScore = score;
+        // Krev samme første og siste bokstav
+        if (w[0] !== dictWord[0]) continue;
+        if (w[w.length - 1] !== dictWord[dictWord.length - 1]) continue;
+
+        // Veldig enkel, streng delmatch:
+        // enten kandidatord inneholder ordboksordet
+        // eller ordboksordet inneholder kandidatordet
+        if (w.includes(dictWord) || dictWord.includes(w)) {
+            const coverage = Math.min(w.length, dictWord.length) / Math.max(w.length, dictWord.length);
+            const score = coverage * 100;
+
+            if (score > bestScore) {
+                bestScore = score;
+            }
         }
     }
 
-    // Ikke stol på veldig svake deltreff
-    if (bestScore < 60) return 0;
+    // Krev veldig høy overlapp
+    if (bestScore < 80) return 0;
 
     return bestScore;
 }
 
 // ---------------------------
-// Score hel kandidattekst
+// Score kandidattekst
 // ---------------------------
 function scoreCandidateText(text) {
     const normalizedText = normalizeText(text);
@@ -168,7 +185,7 @@ function scoreCandidateText(text) {
         };
     }
 
-    // 1) Eksakt hel-linje-match = 100 %
+    // 1) Eksakt frasematch
     if (dictionaryLineSet.has(normalizedText)) {
         return {
             score: 100,
@@ -181,7 +198,7 @@ function scoreCandidateText(text) {
         };
     }
 
-    // 2) Hvis alle ord matcher eksakt = 100 %
+    // 2) Alle ord matcher eksakt
     const allWordsAreExact = words.every(word => dictionaryWordSet.has(word));
     if (allWordsAreExact) {
         return {
@@ -195,41 +212,45 @@ function scoreCandidateText(text) {
         };
     }
 
-    // 3) Ellers: vekting per ordlengde
-    let totalWeight = 0;
-    let earnedWeight = 0;
+    // 3) Ellers: score baseres først og fremst på eksakte ord
+    let totalLetters = 0;
+    let exactLetters = 0;
+    let partialBonus = 0;
     let exactWords = 0;
     let partialWords = 0;
     const details = [];
 
     for (const word of words) {
-        const weight = Math.max(word.length, 1);
-        totalWeight += weight;
+        const len = word.length;
+        totalLetters += len;
 
         if (dictionaryWordSet.has(word)) {
             exactWords++;
-            earnedWeight += weight;
+            exactLetters += len;
             details.push(`${word} (100%)`);
             continue;
         }
 
-        const partialScore = getPartialWordScore(word);
+        const partialScore = getStrictPartialWordScore(word);
 
         if (partialScore > 0) {
             partialWords++;
-            // Deltreff teller, men mye svakere enn eksakt treff
-            earnedWeight += weight * (partialScore / 100) * 0.45;
+
+            // Deltreff gir bare en liten bonus
+            // og aldri i nærheten av et eksakt ord
+            partialBonus += len * (partialScore / 100) * 0.12;
+
             details.push(`${word} (${partialScore.toFixed(1)}%)`);
         } else {
             details.push(`${word} (0%)`);
         }
     }
 
-    let finalScore = totalWeight > 0 ? (earnedWeight / totalWeight) * 100 : 0;
+    let finalScore = 0;
 
-    // Liten bonus hvis mange ord er eksakte
-    const exactRatio = exactWords / words.length;
-    finalScore += exactRatio * 10;
+    if (totalLetters > 0) {
+        finalScore = ((exactLetters + partialBonus) / totalLetters) * 100;
+    }
 
     if (finalScore > 100) finalScore = 100;
 
@@ -242,16 +263,6 @@ function scoreCandidateText(text) {
         totalWords: words.length,
         details
     };
-}
-
-// ---------------------------
-// HTML-escaping
-// ---------------------------
-function escapeHtml(text) {
-    return text
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
 }
 
 // ---------------------------
@@ -272,10 +283,7 @@ function analyze() {
     }
 
     const shifts = [];
-    const labels = [];
-    const probabilities = [];
 
-    // Merk: nå tester vi også shift 0
     for (let shift = 0; shift < alphabetLength; shift++) {
         const plain = caesarDecrypt(cipherInput, shift);
         const analysis = scoreCandidateText(plain);
@@ -291,13 +299,14 @@ function analyze() {
             totalWords: analysis.totalWords,
             details: analysis.details
         });
-
-        labels.push("Shift " + shift);
-        probabilities.push(Number(analysis.score.toFixed(1)));
     }
 
-    // Sorter etter høyest score
-    const ranked = [...shifts].sort((a, b) => b.probability - a.probability);
+    const ranked = [...shifts].sort((a, b) => {
+        if (b.probability !== a.probability) return b.probability - a.probability;
+        if (b.exactWords !== a.exactWords) return b.exactWords - a.exactWords;
+        return a.shift - b.shift;
+    });
+
     const best = ranked[0];
 
     document.getElementById("output").innerHTML = `
