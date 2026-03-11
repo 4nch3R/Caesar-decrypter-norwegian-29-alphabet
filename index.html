@@ -66,16 +66,16 @@
         const norwegianAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ";
         const alphabetLength = norwegianAlphabet.length;
 
-        let dictionaryLineSet = new Set();   // hele fraser
-        let dictionaryWordSet = new Set();   // enkeltord
-        let dictionaryWordsArray = [];       // brukes for streng delmatch
+        let dictionaryLineSet = new Set();
+        let dictionaryWordSet = new Set();
+        let dictionaryWordsArray = [];
         let chartInstance = null;
 
         function normalizeText(text) {
             return text
                 .toUpperCase()
-                .replace(/[^A-ZÆØÅ0-9\\s]/g, " ")
-                .replace(/\\s+/g, " ")
+                .replace(/[^A-ZÆØÅ0-9\s]/g, " ")
+                .replace(/\s+/g, " ")
                 .trim();
         }
 
@@ -121,7 +121,7 @@
                 return response.text();
             })
             .then(data => {
-                const rawLines = data.split(/\\r?\\n/);
+                const rawLines = data.split(/\r?\n/);
 
                 const normalizedLines = rawLines
                     .map(line => normalizeText(line))
@@ -139,10 +139,6 @@
 
                 dictionaryWordSet = wordSet;
                 dictionaryWordsArray = Array.from(dictionaryWordSet);
-
-                console.log("Ordliste lastet:");
-                console.log("- Fraser:", dictionaryLineSet.size);
-                console.log("- Unike ord:", dictionaryWordSet.size);
             })
             .catch(error => {
                 console.error("Kunne ikke laste ordliste.txt:", error);
@@ -176,17 +172,12 @@
             for (const dictWord of dictionaryWordsArray) {
                 if (dictWord.length < 4) continue;
                 if (w === dictWord) continue;
-
                 if (Math.abs(w.length - dictWord.length) > 2) continue;
-
                 if (w[0] !== dictWord[0]) continue;
                 if (w[w.length - 1] !== dictWord[dictWord.length - 1]) continue;
 
                 if (w.includes(dictWord) || dictWord.includes(w)) {
-                    const coverage =
-                        Math.min(w.length, dictWord.length) /
-                        Math.max(w.length, dictWord.length);
-
+                    const coverage = Math.min(w.length, dictWord.length) / Math.max(w.length, dictWord.length);
                     const score = coverage * 100;
 
                     if (score > bestScore) {
@@ -196,7 +187,6 @@
             }
 
             if (bestScore < 80) return 0;
-
             return bestScore;
         }
 
@@ -387,7 +377,7 @@
                                 .map(item =>
                                     `${item.shift}: ${item.text}  [${item.probability.toFixed(1)}% | eksakte ord: ${item.exactWords}/${item.totalWords} | deltreff: ${item.partialWords}]`
                                 )
-                                .join("\\n")
+                                .join("\n")
                         )}</pre>
                     </div>
                 </div>
