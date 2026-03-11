@@ -2,414 +2,507 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Caesar Cipher Decoder – Norwegian 29-Letter Alphabet</title>
     <meta name="description" content="Decode Caesar ciphers using the Norwegian 29-letter alphabet (A–Z, Æ, Ø, Å). Try all shifts instantly with this Caesar cipher decoder.">
     <link rel="canonical" href="https://4nch3r.github.io/Caesar-decrypter-norwegian-29-alphabet/">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+
     <meta property="og:title" content="Caesar Cipher Decoder – Norwegian Alphabet">
     <meta property="og:description" content="Decode Caesar ciphers using the Norwegian 29-letter alphabet.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://4nch3r.github.io/Caesar-decrypter-norwegian-29-alphabet/">
+
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
+    <div class="app-shell">
+        <div class="app-card">
+            <div class="hero">
+                <p class="eyebrow">Kryptografi-verktøy</p>
+                <h1>Caesar-dekryptering med norsk alfabet</h1>
+                <p class="subtitle">
+                    Skriv inn ett ord eller en setning. Verktøyet prøver alle Caesar-skift i det norske alfabetet, inkludert Æ, Ø og Å.
+                </p>
+            </div>
 
-<div class="app-shell">
-    <div class="app-card">
+            <div class="input-section">
+                <label for="cipher">Kryptert tekst</label>
 
-        <div class="hero">
-            <p class="eyebrow">Kryptografi-verktøy</p>
-            <h1>Caesar-dekryptering med norsk alfabet</h1>
-            <p class="subtitle">
-                Skriv inn ett ord eller en setning. Verktøyet prøver alle Caesar-skift i det norske alfabetet, inkludert Æ, Ø og Å.
-            </p>
-        </div>
+                <div class="input-row">
+                    <input id="cipher" type="text" placeholder="f.eks. Mhj hu nxo" onkeydown="handleKeyPress(event)">
+                    <button class="primary-btn" onclick="analyze()">Analyser</button>
+                    <button class="secondary-btn danger-btn" onclick="clearAll()">Clear all</button>
+                </div>
 
-        <div class="input-section">
-            <label for="cipher">Kryptert tekst</label>
+                <p class="helper-text">
+                    Tips: Verktøyet vurderer både hele ord, hele fraser og strenge deltreff for lengre ord.
+                </p>
+            </div>
 
-            <div class="input-row">
-                <input id="cipher" type="text" placeholder="f.eks. Mhj hu nxo">
-                <button onclick="analyze()">Analyser</button>
+            <div class="chart-card">
+                <div class="section-header">
+                    <h2>Skiftanalyse</h2>
+                    <p>Høyere score betyr bedre treff mot ordlisten.</p>
+                </div>
+                <div class="chart-section">
+                    <canvas id="chart"></canvas>
+                </div>
+            </div>
+
+            <div id="output" class="output-card">
+                <div class="empty-state">
+                    <h3>Klar til analyse</h3>
+                    <p>Skriv inn en kryptert tekst og trykk <strong>Analyser</strong>.</p>
+                </div>
             </div>
         </div>
-
-        <div class="chart-section">
-            <canvas id="chart"></canvas>
-        </div>
-
-        <div id="output" class="output-card"></div>
-
     </div>
-</div>
 
-<!-- Chart.js bibliotek (MANGLET I ORIGINALEN) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<script>
+    <script>
+        const norwegianAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ";
+        const alphabetLength = norwegianAlphabet.length;
 
-const norwegianAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ";
-const alphabetLength = norwegianAlphabet.length;
+        let dictionaryLineSet = new Set();   // hele fraser
+        let dictionaryWordSet = new Set();   // enkeltord
+        let dictionaryWordsArray = [];       // brukes for streng delmatch
+        let chartInstance = null;
 
-let dictionaryLineSet = new Set();
-let dictionaryWordSet = new Set();
-let dictionaryWordsArray = [];
-let chartInstance = null;
+        function normalizeText(text) {
+            return text
+                .toUpperCase()
+                .replace(/[^A-ZÆØÅ0-9\\s]/g, " ")
+                .replace(/\\s+/g, " ")
+                .trim();
+        }
 
-function normalizeText(text) {
-    return text
-        .toUpperCase()
-        .replace(/[^A-ZÆØÅ0-9\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-}
+        function extractWords(text) {
+            const normalized = normalizeText(text);
+            if (!normalized) return [];
+            return normalized.split(" ").filter(Boolean);
+        }
 
-function extractWords(text) {
-    const normalized = normalizeText(text);
-    if (!normalized) return [];
-    return normalized.split(" ").filter(Boolean);
-}
+        function escapeHtml(text) {
+            return text
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;");
+        }
 
-function escapeHtml(text) {
-    return text
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-}
-
-
-fetch("ordliste.txt")
-    .then(response => response.text())
-    .then(data => {
-
-        const rawLines = data.split(/\r?\n/);
-
-        const normalizedLines = rawLines
-            .map(line => normalizeText(line))
-            .filter(Boolean);
-
-        dictionaryLineSet = new Set(normalizedLines);
-
-        const wordSet = new Set();
-
-        for (const line of normalizedLines) {
-
-            const words = extractWords(line);
-
-            for (const word of words) {
-                wordSet.add(word);
+        function handleKeyPress(event) {
+            if (event.key === "Enter") {
+                analyze();
             }
         }
 
-        dictionaryWordSet = wordSet;
-        dictionaryWordsArray = Array.from(dictionaryWordSet);
+        function clearAll() {
+            document.getElementById("cipher").value = "";
+            document.getElementById("output").innerHTML = `
+                <div class="empty-state">
+                    <h3>Klar til analyse</h3>
+                    <p>Skriv inn en kryptert tekst og trykk <strong>Analyser</strong>.</p>
+                </div>
+            `;
 
-    })
-    .catch(error => {
-
-        console.error("Kunne ikke laste ordliste.txt:", error);
-
-        document.getElementById("output").innerHTML =
-            "<p><strong>Feil:</strong> Kunne ikke laste ordliste.txt.</p>";
-    });
-
-
-function caesarDecrypt(text, shift) {
-
-    return text.split("").map(char => {
-
-        const upperChar = char.toUpperCase();
-        const index = norwegianAlphabet.indexOf(upperChar);
-
-        if (index === -1) return char;
-
-        const newIndex = (index - shift + alphabetLength) % alphabetLength;
-
-        return norwegianAlphabet[newIndex];
-
-    }).join("");
-}
-
-
-function getStrictPartialWordScore(word) {
-
-    const w = word.toUpperCase();
-
-    if (w.length < 5) return 0;
-
-    let bestScore = 0;
-
-    for (const dictWord of dictionaryWordsArray) {
-
-        if (dictWord.length < 4) continue;
-        if (w === dictWord) continue;
-
-        if (Math.abs(w.length - dictWord.length) > 2) continue;
-
-        if (w[0] !== dictWord[0]) continue;
-        if (w[w.length - 1] !== dictWord[dictWord.length - 1]) continue;
-
-        if (w.includes(dictWord) || dictWord.includes(w)) {
-
-            const coverage =
-                Math.min(w.length, dictWord.length) /
-                Math.max(w.length, dictWord.length);
-
-            const score = coverage * 100;
-
-            if (score > bestScore) {
-                bestScore = score;
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
             }
         }
-    }
 
-    if (bestScore < 80) return 0;
+        fetch("ordliste.txt")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Kunne ikke hente ordliste.txt");
+                }
+                return response.text();
+            })
+            .then(data => {
+                const rawLines = data.split(/\\r?\\n/);
 
-    return bestScore;
-}
+                const normalizedLines = rawLines
+                    .map(line => normalizeText(line))
+                    .filter(Boolean);
 
+                dictionaryLineSet = new Set(normalizedLines);
 
-function scoreCandidateText(text) {
+                const wordSet = new Set();
+                for (const line of normalizedLines) {
+                    const words = extractWords(line);
+                    for (const word of words) {
+                        wordSet.add(word);
+                    }
+                }
 
-    const normalizedText = normalizeText(text);
-    const words = extractWords(text);
+                dictionaryWordSet = wordSet;
+                dictionaryWordsArray = Array.from(dictionaryWordSet);
 
-    if (!normalizedText || words.length === 0) {
+                console.log("Ordliste lastet:");
+                console.log("- Fraser:", dictionaryLineSet.size);
+                console.log("- Unike ord:", dictionaryWordSet.size);
+            })
+            .catch(error => {
+                console.error("Kunne ikke laste ordliste.txt:", error);
+                document.getElementById("output").innerHTML = `
+                    <div class="error-state">
+                        <h3>Feil ved lasting av ordliste</h3>
+                        <p>Kunne ikke laste <code>ordliste.txt</code>. Sjekk at filen ligger i samme mappe som <code>index.html</code>.</p>
+                    </div>
+                `;
+            });
 
-        return {
-            score: 0,
-            exactLineMatch: false,
-            allWordsExact: false,
-            exactWords: 0,
-            partialWords: 0,
-            totalWords: 0,
-            details: []
-        };
-    }
+        function caesarDecrypt(text, shift) {
+            return text.split("").map(char => {
+                const upperChar = char.toUpperCase();
+                const index = norwegianAlphabet.indexOf(upperChar);
 
-    if (dictionaryLineSet.has(normalizedText)) {
+                if (index === -1) return char;
 
-        return {
-            score: 100,
-            exactLineMatch: true,
-            allWordsExact: true,
-            exactWords: words.length,
-            partialWords: 0,
-            totalWords: words.length,
-            details: words.map(w => `${w} (100%)`)
-        };
-    }
-
-    const allWordsAreExact =
-        words.every(word => dictionaryWordSet.has(word));
-
-    if (allWordsAreExact) {
-
-        return {
-            score: 100,
-            exactLineMatch: false,
-            allWordsExact: true,
-            exactWords: words.length,
-            partialWords: 0,
-            totalWords: words.length,
-            details: words.map(w => `${w} (100%)`)
-        };
-    }
-
-    let totalLetters = 0;
-    let exactLetters = 0;
-    let partialBonus = 0;
-
-    let exactWords = 0;
-    let partialWords = 0;
-
-    const details = [];
-
-    for (const word of words) {
-
-        const len = word.length;
-
-        totalLetters += len;
-
-        if (dictionaryWordSet.has(word)) {
-
-            exactWords++;
-            exactLetters += len;
-
-            details.push(`${word} (100%)`);
-
-            continue;
+                const newIndex = (index - shift + alphabetLength) % alphabetLength;
+                return norwegianAlphabet[newIndex];
+            }).join("");
         }
 
-        const partialScore = getStrictPartialWordScore(word);
+        function getStrictPartialWordScore(word) {
+            const w = word.toUpperCase();
 
-        if (partialScore > 0) {
+            if (w.length < 5) return 0;
 
-            partialWords++;
+            let bestScore = 0;
 
-            partialBonus +=
-                len * (partialScore / 100) * 0.12;
+            for (const dictWord of dictionaryWordsArray) {
+                if (dictWord.length < 4) continue;
+                if (w === dictWord) continue;
 
-            details.push(`${word} (${partialScore.toFixed(1)}%)`);
+                if (Math.abs(w.length - dictWord.length) > 2) continue;
 
-        } else {
+                if (w[0] !== dictWord[0]) continue;
+                if (w[w.length - 1] !== dictWord[dictWord.length - 1]) continue;
 
-            details.push(`${word} (0%)`);
-        }
-    }
+                if (w.includes(dictWord) || dictWord.includes(w)) {
+                    const coverage =
+                        Math.min(w.length, dictWord.length) /
+                        Math.max(w.length, dictWord.length);
 
-    let finalScore = 0;
+                    const score = coverage * 100;
 
-    if (totalLetters > 0) {
-
-        finalScore =
-            ((exactLetters + partialBonus) / totalLetters) * 100;
-    }
-
-    if (finalScore > 100) finalScore = 100;
-
-    return {
-        score: finalScore,
-        exactLineMatch: false,
-        allWordsExact: false,
-        exactWords,
-        partialWords,
-        totalWords: words.length,
-        details
-    };
-}
-
-
-function analyze() {
-
-    const cipherInput =
-        document.getElementById("cipher").value.trim();
-
-    if (!cipherInput) {
-
-        document.getElementById("output").innerHTML =
-            "<p>Skriv inn tekst først.</p>";
-
-        return;
-    }
-
-    if (
-        dictionaryWordSet.size === 0 &&
-        dictionaryLineSet.size === 0
-    ) {
-
-        document.getElementById("output").innerHTML =
-            "<p>Ordliste er ikke lastet ennå. Prøv igjen om et øyeblikk.</p>";
-
-        return;
-    }
-
-    const shifts = [];
-
-    for (let shift = 0; shift < alphabetLength; shift++) {
-
-        const plain = caesarDecrypt(cipherInput, shift);
-
-        const analysis = scoreCandidateText(plain);
-
-        shifts.push({
-            shift,
-            text: plain,
-            probability: analysis.score,
-            exactLineMatch: analysis.exactLineMatch,
-            allWordsExact: analysis.allWordsExact,
-            exactWords: analysis.exactWords,
-            partialWords: analysis.partialWords,
-            totalWords: analysis.totalWords,
-            details: analysis.details
-        });
-    }
-
-    const ranked = [...shifts].sort((a, b) => {
-
-        if (b.probability !== a.probability)
-            return b.probability - a.probability;
-
-        if (b.exactWords !== a.exactWords)
-            return b.exactWords - a.exactWords;
-
-        return a.shift - b.shift;
-    });
-
-    const best = ranked[0];
-
-    document.getElementById("output").innerHTML = `
-        <h3>Mest sannsynlige dekryptering</h3>
-        <p>
-        <strong>${escapeHtml(best.text)}</strong><br>
-        Shift ${best.shift} · score ${best.probability.toFixed(1)}%
-        </p>
-
-        <h3>Topp 10 dekrypteringer</h3>
-
-        <pre>${escapeHtml(
-            ranked
-                .slice(0, 10)
-                .map(item =>
-                    `${item.shift}: ${item.text}  [${item.probability.toFixed(1)}%]`
-                )
-                .join("\n")
-        )}</pre>
-    `;
-
-    drawChart(shifts, best.shift);
-}
-
-
-function drawChart(shiftResults, bestShift) {
-
-    const ctx = document.getElementById("chart").getContext("2d");
-
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
-
-    const labels =
-        shiftResults.map(item => `Shift ${item.shift}`);
-
-    const data =
-        shiftResults.map(item =>
-            Number(item.probability.toFixed(1))
-        );
-
-    chartInstance = new Chart(ctx, {
-
-        type: "bar",
-
-        data: {
-
-            labels,
-
-            datasets: [{
-                label: "Sannsynlighet",
-                data
-            }]
-        },
-
-        options: {
-
-            responsive: true,
-            maintainAspectRatio: false,
-
-            scales: {
-
-                y: {
-                    beginAtZero: true,
-                    max: 100
+                    if (score > bestScore) {
+                        bestScore = score;
+                    }
                 }
             }
+
+            if (bestScore < 80) return 0;
+
+            return bestScore;
         }
-    });
-}
 
-</script>
+        function scoreCandidateText(text) {
+            const normalizedText = normalizeText(text);
+            const words = extractWords(text);
 
+            if (!normalizedText || words.length === 0) {
+                return {
+                    score: 0,
+                    exactLineMatch: false,
+                    allWordsExact: false,
+                    exactWords: 0,
+                    partialWords: 0,
+                    totalWords: 0,
+                    details: []
+                };
+            }
+
+            if (dictionaryLineSet.has(normalizedText)) {
+                return {
+                    score: 100,
+                    exactLineMatch: true,
+                    allWordsExact: true,
+                    exactWords: words.length,
+                    partialWords: 0,
+                    totalWords: words.length,
+                    details: words.map(w => `${w} (100%)`)
+                };
+            }
+
+            const allWordsAreExact = words.every(word => dictionaryWordSet.has(word));
+            if (allWordsAreExact) {
+                return {
+                    score: 100,
+                    exactLineMatch: false,
+                    allWordsExact: true,
+                    exactWords: words.length,
+                    partialWords: 0,
+                    totalWords: words.length,
+                    details: words.map(w => `${w} (100%)`)
+                };
+            }
+
+            let totalLetters = 0;
+            let exactLetters = 0;
+            let partialBonus = 0;
+            let exactWords = 0;
+            let partialWords = 0;
+            const details = [];
+
+            for (const word of words) {
+                const len = word.length;
+                totalLetters += len;
+
+                if (dictionaryWordSet.has(word)) {
+                    exactWords++;
+                    exactLetters += len;
+                    details.push(`${word} (100%)`);
+                    continue;
+                }
+
+                const partialScore = getStrictPartialWordScore(word);
+
+                if (partialScore > 0) {
+                    partialWords++;
+                    partialBonus += len * (partialScore / 100) * 0.12;
+                    details.push(`${word} (${partialScore.toFixed(1)}%)`);
+                } else {
+                    details.push(`${word} (0%)`);
+                }
+            }
+
+            let finalScore = 0;
+
+            if (totalLetters > 0) {
+                finalScore = ((exactLetters + partialBonus) / totalLetters) * 100;
+            }
+
+            if (finalScore > 100) finalScore = 100;
+
+            return {
+                score: finalScore,
+                exactLineMatch: false,
+                allWordsExact: false,
+                exactWords,
+                partialWords,
+                totalWords: words.length,
+                details
+            };
+        }
+
+        function analyze() {
+            const cipherInput = document.getElementById("cipher").value.trim();
+
+            if (!cipherInput) {
+                document.getElementById("output").innerHTML = `
+                    <div class="warning-state">
+                        <h3>Mangler tekst</h3>
+                        <p>Skriv inn tekst først.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (dictionaryWordSet.size === 0 && dictionaryLineSet.size === 0) {
+                document.getElementById("output").innerHTML = `
+                    <div class="warning-state">
+                        <h3>Ordliste lastes fortsatt</h3>
+                        <p>Prøv igjen om et øyeblikk.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const shifts = [];
+
+            for (let shift = 0; shift < alphabetLength; shift++) {
+                const plain = caesarDecrypt(cipherInput, shift);
+                const analysis = scoreCandidateText(plain);
+
+                shifts.push({
+                    shift,
+                    text: plain,
+                    probability: analysis.score,
+                    exactLineMatch: analysis.exactLineMatch,
+                    allWordsExact: analysis.allWordsExact,
+                    exactWords: analysis.exactWords,
+                    partialWords: analysis.partialWords,
+                    totalWords: analysis.totalWords,
+                    details: analysis.details
+                });
+            }
+
+            const ranked = [...shifts].sort((a, b) => {
+                if (b.probability !== a.probability) return b.probability - a.probability;
+                if (b.exactWords !== a.exactWords) return b.exactWords - a.exactWords;
+                return a.shift - b.shift;
+            });
+
+            const best = ranked[0];
+
+            document.getElementById("output").innerHTML = `
+                <div class="result-summary">
+                    <div class="section-header">
+                        <h2>Mest sannsynlige dekryptering</h2>
+                        <p>Beste kandidat basert på ordliste og deltreff.</p>
+                    </div>
+
+                    <div class="best-result">
+                        <div class="result-badge">Shift ${best.shift}</div>
+                        <div class="result-score">${best.probability.toFixed(1)}%</div>
+                    </div>
+
+                    <div class="decoded-box">
+                        ${escapeHtml(best.text)}
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-label">Eksakte ord</span>
+                            <span class="stat-value">${best.exactWords}/${best.totalWords}</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Deltreff</span>
+                            <span class="stat-value">${best.partialWords}</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Eksakt frasematch</span>
+                            <span class="stat-value">${best.exactLineMatch ? "Ja" : "Nei"}</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-label">Alle ord eksakte</span>
+                            <span class="stat-value">${best.allWordsExact ? "Ja" : "Nei"}</span>
+                        </div>
+                    </div>
+
+                    <div class="details-card">
+                        <h3>Ordvurdering</h3>
+                        <p>${escapeHtml(best.details.join(", "))}</p>
+                    </div>
+
+                    <div class="details-card">
+                        <h3>Topp 10 dekrypteringer</h3>
+                        <pre>${escapeHtml(
+                            ranked
+                                .slice(0, 10)
+                                .map(item =>
+                                    `${item.shift}: ${item.text}  [${item.probability.toFixed(1)}% | eksakte ord: ${item.exactWords}/${item.totalWords} | deltreff: ${item.partialWords}]`
+                                )
+                                .join("\\n")
+                        )}</pre>
+                    </div>
+                </div>
+            `;
+
+            drawChart(shifts, best.shift);
+        }
+
+        function drawChart(shiftResults, bestShift) {
+            const canvas = document.getElementById("chart");
+            if (!canvas) return;
+
+            const ctx = canvas.getContext("2d");
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const labels = shiftResults.map(item => `Shift ${item.shift}`);
+            const data = shiftResults.map(item => Number(item.probability.toFixed(1)));
+
+            const backgroundColors = shiftResults.map(item =>
+                item.shift === bestShift
+                    ? "rgba(16, 185, 129, 0.88)"
+                    : "rgba(79, 70, 229, 0.72)"
+            );
+
+            const borderColors = shiftResults.map(item =>
+                item.shift === bestShift
+                    ? "rgba(5, 150, 105, 1)"
+                    : "rgba(67, 56, 202, 1)"
+            );
+
+            chartInstance = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels,
+                    datasets: [{
+                        label: "Sannsynlighet basert på ordtreff",
+                        data,
+                        backgroundColor: backgroundColors,
+                        borderColor: borderColors,
+                        borderWidth: 1.2,
+                        borderRadius: 10,
+                        borderSkipped: false,
+                        maxBarThickness: 26
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 500
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: "#334155",
+                                font: {
+                                    size: 13,
+                                    weight: "600"
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: "rgba(15, 23, 42, 0.92)",
+                            titleColor: "#f8fafc",
+                            bodyColor: "#e2e8f0",
+                            padding: 10,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Score: ${context.raw}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                color: "#475569",
+                                maxRotation: 0,
+                                minRotation: 0,
+                                font: {
+                                    size: 11
+                                }
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                color: "#475569",
+                                callback: value => value + "%"
+                            },
+                            title: {
+                                display: true,
+                                text: "Prosent (%)",
+                                color: "#334155",
+                                font: {
+                                    size: 12,
+                                    weight: "600"
+                                }
+                            },
+                            grid: {
+                                color: "rgba(148, 163, 184, 0.2)"
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
 </body>
 </html>
