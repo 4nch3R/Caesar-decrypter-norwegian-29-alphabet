@@ -1,642 +1,508 @@
 <!DOCTYPE html>
 <html lang="no">
+
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="dark">
 
-    <title>Caesar kode dekryptering på norsk (ÆØÅ) | Caesar-dekoder</title>
-    <meta name="description" content="Dekrypter Caesar-kode med norsk alfabet (A–Z, Æ, Ø, Å). Denne Caesar-dekoderen prøver alle 29 skift automatisk og viser alle mulige dekrypteringer.">
-    <link rel="canonical" href="https://4nch3r.github.io/Caesar-decrypter-norwegian-29-alphabet/">
-    <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
+    <title>Caesar kode dekryptering (norsk alfabet ÆØÅ)</title>
 
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <meta name="description"
+        content="Dekrypter Caesar-kode med norsk alfabet (A–Z, Æ, Ø, Å). Verktøyet tester alle 29 skift automatisk.">
 
-    <meta property="og:title" content="Caesar kode dekryptering på norsk (ÆØÅ)">
-    <meta property="og:description" content="Dekrypter Caesar-koder med norsk alfabet. Verktøyet prøver alle 29 skift automatisk.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://4nch3r.github.io/Caesar-decrypter-norwegian-29-alphabet/">
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "Caesar kode dekryptering på norsk",
-      "applicationCategory": "UtilityApplication",
-      "operatingSystem": "Web",
-      "url": "https://4nch3r.github.io/Caesar-decrypter-norwegian-29-alphabet/",
-      "description": "En enkel Caesar-dekoder for norsk alfabet med 29 bokstaver, inkludert Æ, Ø og Å. Verktøyet prøver alle skift automatisk.",
-      "inLanguage": "no"
-    }
-    </script>
+    <link rel="canonical"
+        href="https://4nch3r.github.io/Caesar-decrypter-norwegian-29-alphabet/">
 
     <link rel="stylesheet" href="style.css">
+
 </head>
+
+
 <body>
-    <main class="app-shell">
-        <section class="app-card">
-            <header class="hero">
-                <p class="eyebrow">Kryptografi-verktøy</p>
-                <h1>Caesar-dekryptering med norsk alfabet</h1>
-                <p class="subtitle">
-                    Skriv inn tekst, og verktøyet prøver alle 29 Caesar-skift i det norske alfabetet, inkludert Æ, Ø og Å.
-                </p>
-            </header>
 
-            <section class="input-section" aria-labelledby="cipher-label">
-                <label id="cipher-label" for="cipher">Kryptert tekst</label>
 
-                <div class="input-row">
-                    <input id="cipher" type="text" placeholder="f.eks. Mhj hu nxo" onkeydown="handleKeyPress(event)">
-                    <button class="primary-btn" onclick="analyze()">Analyser</button>
-                    <button class="secondary-btn danger-btn" onclick="clearAll()">Tøm</button>
-                </div>
+<div class="app-shell">
 
-                <p class="helper-text">
-                    Eksakt treff gir 100 %. Deltreff regnes bare fra starten av ordet.
-                </p>
-            </section>
+<div class="app-card">
 
-            <section class="chart-card" aria-labelledby="chart-heading">
-                <div class="section-header">
-                    <h2 id="chart-heading">Skiftanalyse</h2>
-                    <p>Høyere score betyr bedre treff mot ordlisten.</p>
-                </div>
-                <div class="chart-section">
-                    <canvas id="chart"></canvas>
-                </div>
-            </section>
 
-            <section id="output" class="output-card" aria-live="polite">
-                <div class="empty-state">
-                    <h3>Klar til analyse</h3>
-                    <p>Skriv inn en kryptert tekst og trykk <strong>Analyser</strong>.</p>
-                </div>
-            </section>
+<div class="hero">
 
-            <section class="seo-copy" aria-label="Beskrivelse av verktøyet">
-                <p>
-                    Dette er en enkel Caesar-dekoder for norsk tekst. Verktøyet prøver alle 29 skift i det norske alfabetet
-                    (A–Z, Æ, Ø, Å) og viser alle mulige dekrypteringer for Caesar-kode på norsk.
-                </p>
-            </section>
-        </section>
-    </main>
+<h1>Caesar dekryptering – norsk alfabet</h1>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<p class="subtitle">
+Dekrypter Caesar-kode med norsk alfabet (A–Z Æ Ø Å). Verktøyet tester alle 29 skift.
+</p>
 
-    <script>
-        const norwegianAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ";
-        const alphabetLength = norwegianAlphabet.length;
+</div>
 
-        let dictionaryLineSet = new Set();
-        let dictionaryWordSet = new Set();
-        let dictionaryWordsArray = [];
-        let dictionaryWordsByFirstChar = new Map();
-        let chartInstance = null;
 
-        function normalizeText(text) {
-            return text
-                .toUpperCase()
-                .replace(/[^A-ZÆØÅ0-9\s]/g, " ")
-                .replace(/\s+/g, " ")
-                .trim();
+
+<div class="input-section">
+
+<label for="cipher">Kryptert tekst</label>
+
+<div class="input-row">
+
+<input
+    id="cipher"
+    type="text"
+    placeholder="f.eks. Mhj hu nxo"
+    onkeydown="handleKeyPress(event)"
+>
+
+<button class="primary-btn" onclick="analyze()">
+Analyser
+</button>
+
+<button class="secondary-btn danger-btn" onclick="clearAll()">
+Tøm
+</button>
+
+</div>
+
+</div>
+
+
+
+<div class="chart-card">
+
+<div class="section-header">
+
+<h2>Skiftanalyse</h2>
+
+</div>
+
+<div class="chart-section">
+
+<canvas id="chart"></canvas>
+
+</div>
+
+</div>
+
+
+
+<div id="output" class="output-card">
+
+<div class="empty-state">
+
+<h3>Klar</h3>
+
+<p>Skriv inn tekst og trykk analyser</p>
+
+</div>
+
+</div>
+
+
+
+</div>
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+<script>
+
+const norwegianAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ"
+const alphabetLength = norwegianAlphabet.length
+
+let dictionaryWordSet = new Set()
+let dictionaryWordsArray = []
+
+let chartInstance = null
+
+
+
+function normalizeText(text)
+{
+    return text
+        .toUpperCase()
+        .replace(/[^A-ZÆØÅ\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+}
+
+
+
+function extractWords(text)
+{
+    const normalized = normalizeText(text)
+
+    if (!normalized) return []
+
+    return normalized.split(" ")
+}
+
+
+
+function escapeHtml(text)
+{
+    return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+}
+
+
+
+function handleKeyPress(event)
+{
+    if (event.key === "Enter")
+    {
+        analyze()
+    }
+}
+
+
+
+function clearAll()
+{
+    document.getElementById("cipher").value = ""
+
+    document.getElementById("output").innerHTML = `
+        <div class="empty-state">
+            <h3>Klar</h3>
+            <p>Skriv inn tekst og trykk analyser</p>
+        </div>
+    `
+
+    if (chartInstance)
+    {
+        chartInstance.destroy()
+        chartInstance = null
+    }
+}
+
+
+
+fetch("ordliste.txt")
+
+.then(response => response.text())
+
+.then(data =>
+{
+
+    const lines = data
+        .split(/\r?\n/)
+        .map(w => normalizeText(w))
+        .filter(Boolean)
+
+
+    for (const line of lines)
+    {
+        const words = line.split(" ")
+
+        for (const word of words)
+        {
+            dictionaryWordSet.add(word)
+        }
+    }
+
+
+    dictionaryWordsArray = [...dictionaryWordSet]
+
+})
+
+
+
+function caesarDecrypt(text, shift)
+{
+    return text
+        .split("")
+        .map(char =>
+        {
+            const upper = char.toUpperCase()
+
+            const index = norwegianAlphabet.indexOf(upper)
+
+            if (index === -1)
+            {
+                return char
+            }
+
+            const newIndex =
+                (index - shift + alphabetLength) % alphabetLength
+
+            return norwegianAlphabet[newIndex]
+        })
+        .join("")
+}
+
+
+
+function longestPrefixMatchLength(word)
+{
+    let best = 0
+
+    for (const dictWord of dictionaryWordsArray)
+    {
+        const maxCheck = Math.min(word.length, dictWord.length)
+
+        let matchLen = 0
+
+        while (
+            matchLen < maxCheck &&
+            word[matchLen] === dictWord[matchLen]
+        )
+        {
+            matchLen++
         }
 
-        function extractWords(text) {
-            const normalized = normalizeText(text);
-            if (!normalized) return [];
-            return normalized.split(" ").filter(Boolean);
+        if (matchLen > best)
+        {
+            best = matchLen
+        }
+    }
+
+    return best
+}
+
+
+
+function scoreWord(word)
+{
+    const w = word.toUpperCase()
+
+
+    if (dictionaryWordSet.has(w))
+    {
+        return {
+            score: 100,
+            prefixLetters: w.length,
+            exact: true
+        }
+    }
+
+
+    const prefix = longestPrefixMatchLength(w)
+
+
+    if (prefix < 3)
+    {
+        return {
+            score: 0,
+            prefixLetters: 0,
+            exact: false
+        }
+    }
+
+
+    return {
+        score: (prefix / w.length) * 100,
+        prefixLetters: prefix,
+        exact: false
+    }
+}
+
+
+
+function scoreCandidateText(text)
+{
+
+    const words = extractWords(text)
+
+    let totalLetters = 0
+    let matchedLetters = 0
+
+    let exactWords = 0
+    let partialWords = 0
+
+    const details = []
+
+
+    for (const word of words)
+    {
+        const len = word.length
+
+        totalLetters += len
+
+        const result = scoreWord(word)
+
+
+        if (result.exact)
+        {
+            exactWords++
+            matchedLetters += len
+
+            details.push(`${word} (100%)`)
         }
 
-        function escapeHtml(text) {
-            return text
-                .replaceAll("&", "&amp;")
-                .replaceAll("<", "&lt;")
-                .replaceAll(">", "&gt;");
+        else if (result.score > 0)
+        {
+            partialWords++
+            matchedLetters += result.prefixLetters
+
+            details.push(`${word} (${result.score.toFixed(1)}%)`)
         }
 
-        function handleKeyPress(event) {
-            if (event.key === "Enter") {
-                analyze();
-            }
+        else
+        {
+            details.push(`${word} (0%)`)
         }
+    }
 
-        function clearAll() {
-            document.getElementById("cipher").value = "";
-            document.getElementById("output").innerHTML = `
-                <div class="empty-state">
-                    <h3>Klar til analyse</h3>
-                    <p>Skriv inn en kryptert tekst og trykk <strong>Analyser</strong>.</p>
-                </div>
-            `;
-
-            if (chartInstance) {
-                chartInstance.destroy();
-                chartInstance = null;
-            }
-        }
-
-        function buildDictionaryIndexes() {
-            dictionaryWordsByFirstChar = new Map();
-
-            for (const word of dictionaryWordsArray) {
-                const firstChar = word[0];
-                if (!dictionaryWordsByFirstChar.has(firstChar)) {
-                    dictionaryWordsByFirstChar.set(firstChar, []);
-                }
-                dictionaryWordsByFirstChar.get(firstChar).push(word);
-            }
-
-            for (const [key, words] of dictionaryWordsByFirstChar.entries()) {
-                words.sort((a, b) => b.length - a.length);
-                dictionaryWordsByFirstChar.set(key, words);
-            }
-        }
-
-        fetch("ordliste.txt")
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Kunne ikke hente ordliste.txt");
-                }
-                return response.text();
-            })
-            .then(data => {
-                const rawLines = data.split(/\r?\n/);
-
-                const normalizedLines = rawLines
-                    .map(line => normalizeText(line))
-                    .filter(Boolean);
-
-                dictionaryLineSet = new Set(normalizedLines);
-
-                const wordSet = new Set();
-                for (const line of normalizedLines) {
-                    const words = extractWords(line);
-                    for (const word of words) {
-                        wordSet.add(word);
-                    }
-                }
-
-                dictionaryWordSet = wordSet;
-                dictionaryWordsArray = Array.from(dictionaryWordSet);
-                buildDictionaryIndexes();
-            })
-            .catch(error => {
-                console.error("Kunne ikke laste ordliste.txt:", error);
-                document.getElementById("output").innerHTML = `
-                    <div class="error-state">
-                        <h3>Feil ved lasting av ordliste</h3>
-                        <p>Kunne ikke laste <code>ordliste.txt</code>. Sjekk at filen ligger i samme mappe som <code>index.html</code>.</p>
-                    </div>
-                `;
-            });
-
-        function caesarDecrypt(text, shift) {
-            return text.split("").map(char => {
-                const upperChar = char.toUpperCase();
-                const index = norwegianAlphabet.indexOf(upperChar);
-
-                if (index === -1) return char;
-
-                const newIndex = (index - shift + alphabetLength) % alphabetLength;
-                return norwegianAlphabet[newIndex];
-            }).join("");
-        }
-
-        function longestPrefixMatchLength(word) {
-            if (!word) return 0;
-
-            const candidates = dictionaryWordsByFirstChar.get(word[0]) || [];
-            let best = 0;
-
-            for (const dictWord of candidates) {
-                const maxCheck = Math.min(word.length, dictWord.length);
-                let matchLen = 0;
-
-                while (matchLen < maxCheck && word[matchLen] === dictWord[matchLen]) {
-                    matchLen++;
-                }
-
-                if (matchLen > best) {
-                    best = matchLen;
-                }
-
-                if (best === word.length) {
-                    break;
-                }
-            }
-
-            return best;
-        }
-
-        function getPrefixPartialScore(word) {
-            const w = word.toUpperCase();
-
-            if (!w || w.length === 0) return 0;
-
-            const longestPrefix = longestPrefixMatchLength(w);
-
-            if (longestPrefix === 0) return 0;
-            if (longestPrefix === w.length) return 100;
-
-            return (longestPrefix / w.length) * 100;
-        }
-
-        function segmentWordIntoDictionaryWords(word) {
-            const w = word.toUpperCase();
-            if (!w) return null;
-
-            if (dictionaryWordSet.has(w)) {
-                return [w];
-            }
-
-            const memo = new Map();
-
-            function solve(startIndex) {
-                if (startIndex === w.length) {
-                    return [];
-                }
-
-                if (memo.has(startIndex)) {
-                    return memo.get(startIndex);
-                }
-
-                const firstChar = w[startIndex];
-                const candidates = dictionaryWordsByFirstChar.get(firstChar) || [];
-
-                for (const candidate of candidates) {
-                    if (w.startsWith(candidate, startIndex)) {
-                        const rest = solve(startIndex + candidate.length);
-                        if (rest !== null) {
-                            const result = [candidate, ...rest];
-                            memo.set(startIndex, result);
-                            return result;
-                        }
-                    }
-                }
-
-                memo.set(startIndex, null);
-                return null;
-            }
-
-            const parts = solve(0);
-
-            if (!parts || parts.length < 2) {
-                return null;
-            }
-
-            return parts;
-        }
-
-        function scoreSingleWord(word) {
-            const w = word.toUpperCase();
-
-            if (!w) {
-                return {
-                    score: 0,
-                    exact: false,
-                    compoundExact: false,
-                    parts: null,
-                    prefixLetters: 0
-                };
-            }
-
-            if (dictionaryWordSet.has(w)) {
-                return {
-                    score: 100,
-                    exact: true,
-                    compoundExact: false,
-                    parts: [w],
-                    prefixLetters: w.length
-                };
-            }
-
-            const segmented = segmentWordIntoDictionaryWords(w);
-            if (segmented) {
-                return {
-                    score: 100,
-                    exact: true,
-                    compoundExact: true,
-                    parts: segmented,
-                    prefixLetters: w.length
-                };
-            }
-
-            const prefixLetters = longestPrefixMatchLength(w);
-            const prefixScore = getPrefixPartialScore(w);
-
-            return {
-                score: prefixScore,
-                exact: false,
-                compoundExact: false,
-                parts: null,
-                prefixLetters
-            };
-        }
-
-        function scoreCandidateText(text) {
-            const normalizedText = normalizeText(text);
-            const words = extractWords(text);
-
-            if (!normalizedText || words.length === 0) {
-                return {
-                    score: 0,
-                    exactLineMatch: false,
-                    allWordsExact: false,
-                    exactWords: 0,
-                    partialWords: 0,
-                    totalWords: 0,
-                    details: []
-                };
-            }
-
-            if (dictionaryLineSet.has(normalizedText)) {
-                return {
-                    score: 100,
-                    exactLineMatch: true,
-                    allWordsExact: true,
-                    exactWords: words.length,
-                    partialWords: 0,
-                    totalWords: words.length,
-                    details: words.map(w => `${w} (100%)`)
-                };
-            }
-
-            let totalLetters = 0;
-            let matchedLetters = 0;
-            let exactWords = 0;
-            let partialWords = 0;
-            const details = [];
-            let allWordsExact = true;
-
-            for (const word of words) {
-                const len = word.length;
-                totalLetters += len;
-
-                const wordResult = scoreSingleWord(word);
-
-                if (wordResult.score === 100) {
-                    exactWords++;
-                    matchedLetters += len;
-
-                    if (wordResult.compoundExact && wordResult.parts && wordResult.parts.length > 1) {
-                        details.push(`${word} (100% = ${wordResult.parts.join(" + ")})`);
-                    } else {
-                        details.push(`${word} (100%)`);
-                    }
-                } else if (wordResult.score > 0) {
-                    partialWords++;
-                    matchedLetters += wordResult.prefixLetters;
-                    allWordsExact = false;
-                    details.push(`${word} (${wordResult.score.toFixed(1)}% fra start)`);
-                } else {
-                    allWordsExact = false;
-                    details.push(`${word} (0%)`);
-                }
-            }
-
-            const finalScore = totalLetters > 0 ? (matchedLetters / totalLetters) * 100 : 0;
-
-            return {
-                score: Math.min(finalScore, 100),
-                exactLineMatch: false,
-                allWordsExact,
-                exactWords,
-                partialWords,
-                totalWords: words.length,
-                details
-            };
-        }
-
-        function analyze() {
-            const cipherInput = document.getElementById("cipher").value.trim();
-
-            if (!cipherInput) {
-                document.getElementById("output").innerHTML = `
-                    <div class="warning-state">
-                        <h3>Mangler tekst</h3>
-                        <p>Skriv inn tekst først.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            if (dictionaryWordSet.size === 0 && dictionaryLineSet.size === 0) {
-                document.getElementById("output").innerHTML = `
-                    <div class="warning-state">
-                        <h3>Ordliste lastes fortsatt</h3>
-                        <p>Prøv igjen om et øyeblikk.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            const shifts = [];
-
-            for (let shift = 0; shift < alphabetLength; shift++) {
-                const plain = caesarDecrypt(cipherInput, shift);
-                const analysis = scoreCandidateText(plain);
-
-                shifts.push({
-                    shift,
-                    text: plain,
-                    probability: analysis.score,
-                    exactLineMatch: analysis.exactLineMatch,
-                    allWordsExact: analysis.allWordsExact,
-                    exactWords: analysis.exactWords,
-                    partialWords: analysis.partialWords,
-                    totalWords: analysis.totalWords,
-                    details: analysis.details
-                });
-            }
-
-            const ranked = [...shifts].sort((a, b) => {
-                if (b.probability !== a.probability) return b.probability - a.probability;
-                if (b.exactWords !== a.exactWords) return b.exactWords - a.exactWords;
-                return a.shift - b.shift;
-            });
-
-            const best = ranked[0];
-
-            const allResultsHtml = ranked.map(item => `
-                <div class="shift-item">
-                    <div class="shift-topline">
-                        <span class="result-badge">Shift ${item.shift}</span>
-                        <span class="mini-score">${item.probability.toFixed(1)}%</span>
-                    </div>
-                    <div class="shift-text">${escapeHtml(item.text)}</div>
-                    <div class="shift-meta">
-                        Eksakte ord: ${item.exactWords}/${item.totalWords} · Deltreff: ${item.partialWords}
-                    </div>
-                </div>
-            `).join("");
-
-            document.getElementById("output").innerHTML = `
-                <div class="result-summary">
-                    <div class="section-header">
-                        <h2>Mest sannsynlige dekryptering</h2>
-                        <p>Beste kandidat basert på ordliste og prefikstreff.</p>
-                    </div>
-
-                    <div class="best-result">
-                        <div class="result-badge">Shift ${best.shift}</div>
-                        <div class="result-score">${best.probability.toFixed(1)}%</div>
-                    </div>
-
-                    <div class="decoded-box">
-                        ${escapeHtml(best.text)}
-                    </div>
-
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <span class="stat-label">Eksakte ord</span>
-                            <span class="stat-value">${best.exactWords}/${best.totalWords}</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">Deltreff</span>
-                            <span class="stat-value">${best.partialWords}</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">Eksakt frasematch</span>
-                            <span class="stat-value">${best.exactLineMatch ? "Ja" : "Nei"}</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">Alle ord eksakte</span>
-                            <span class="stat-value">${best.allWordsExact ? "Ja" : "Nei"}</span>
-                        </div>
-                    </div>
-
-                    <div class="details-card">
-                        <h3>Ordvurdering</h3>
-                        <p>${escapeHtml(best.details.join(", "))}</p>
-                    </div>
-
-                    <div class="details-card">
-                        <h3>Alle 29 dekrypteringer</h3>
-                        <div class="shift-list">
-                            ${allResultsHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            drawChart(shifts, best.shift);
-        }
-
-        function drawChart(shiftResults, bestShift) {
-            const canvas = document.getElementById("chart");
-            if (!canvas) return;
-
-            const ctx = canvas.getContext("2d");
-
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
-
-            const labels = shiftResults.map(item => `${item.shift}`);
-            const data = shiftResults.map(item => Number(item.probability.toFixed(1)));
-
-            const backgroundColors = shiftResults.map(item =>
-                item.shift === bestShift
-                    ? "rgba(16, 185, 129, 0.88)"
-                    : "rgba(79, 70, 229, 0.72)"
-            );
-
-            const borderColors = shiftResults.map(item =>
-                item.shift === bestShift
-                    ? "rgba(5, 150, 105, 1)"
-                    : "rgba(67, 56, 202, 1)"
-            );
-
-            chartInstance = new Chart(ctx, {
-                type: "bar",
-                data: {
-                    labels,
-                    datasets: [{
-                        label: "Sannsynlighet basert på ordtreff",
-                        data,
-                        backgroundColor: backgroundColors,
-                        borderColor: borderColors,
-                        borderWidth: 1.2,
-                        borderRadius: 10,
-                        borderSkipped: false,
-                        maxBarThickness: 24
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: {
-                        duration: 400
-                    },
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: "#cbd5e1",
-                                font: {
-                                    size: 13,
-                                    weight: "600"
-                                }
-                            }
-                        },
-                        tooltip: {
-                            backgroundColor: "rgba(15, 23, 42, 0.92)",
-                            titleColor: "#f8fafc",
-                            bodyColor: "#e2e8f0",
-                            padding: 10,
-                            displayColors: false,
-                            callbacks: {
-                                label: function(context) {
-                                    return `Score: ${context.raw}%`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: {
-                                color: "#94a3b8",
-                                maxRotation: 0,
-                                minRotation: 0,
-                                font: {
-                                    size: 11
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: "Skift",
-                                color: "#cbd5e1"
-                            },
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            ticks: {
-                                color: "#94a3b8",
-                                callback: value => value + "%"
-                            },
-                            title: {
-                                display: true,
-                                text: "Prosent (%)",
-                                color: "#cbd5e1",
-                                font: {
-                                    size: 12,
-                                    weight: "600"
-                                }
-                            },
-                            grid: {
-                                color: "rgba(148, 163, 184, 0.2)"
-                            }
-                        }
-                    }
-                }
-            });
-        }
-    </script>
+
+    const score =
+        totalLetters > 0
+            ? (matchedLetters / totalLetters) * 100
+            : 0
+
+
+    return {
+        score,
+        exactWords,
+        partialWords,
+        totalWords: words.length,
+        details
+    }
+
+}
+
+
+
+function analyze()
+{
+
+    const cipher =
+        document.getElementById("cipher").value.trim()
+
+    if (!cipher) return
+
+
+    const shifts = []
+
+
+    for (let shift = 0; shift < alphabetLength; shift++)
+    {
+        const plain = caesarDecrypt(cipher, shift)
+
+        const analysis = scoreCandidateText(plain)
+
+        shifts.push({
+
+            shift,
+            text: plain,
+            probability: analysis.score,
+
+            exactWords: analysis.exactWords,
+            partialWords: analysis.partialWords,
+            totalWords: analysis.totalWords,
+
+            details: analysis.details
+        })
+    }
+
+
+
+    const ranked =
+        [...shifts].sort((a, b) =>
+            b.probability - a.probability
+        )
+
+
+    const best = ranked[0]
+
+
+
+    document.getElementById("output").innerHTML = `
+
+<h2>Mest sannsynlig dekryptering</h2>
+
+<div class="decoded-box">
+${escapeHtml(best.text)}
+</div>
+
+<div class="details-card">
+
+<h3>Ordvurdering</h3>
+
+<p>
+${escapeHtml(best.details.join(", "))}
+</p>
+
+</div>
+
+
+<div class="details-card">
+
+<h3>Alle 29 skift</h3>
+
+<pre>
+
+${ranked
+.map(item =>
+`${item.shift}: ${item.text} (${item.probability.toFixed(1)}%)`
+)
+.join("\n")}
+
+</pre>
+
+</div>
+
+`
+
+
+drawChart(shifts, best.shift)
+
+}
+
+
+
+function drawChart(results, bestShift)
+{
+
+const ctx =
+document.getElementById("chart").getContext("2d")
+
+
+if (chartInstance)
+{
+chartInstance.destroy()
+}
+
+
+chartInstance = new Chart(ctx,
+{
+
+type: "bar",
+
+data:
+{
+labels: results.map(r => r.shift),
+
+datasets:
+[
+{
+label: "Score",
+
+data: results.map(r => r.probability),
+
+backgroundColor:
+results.map(r =>
+r.shift === bestShift
+? "#34d399"
+: "#6366f1"
+)
+}
+]
+},
+
+options:
+{
+responsive: true,
+maintainAspectRatio: false
+}
+
+})
+
+}
+
+</script>
+
 </body>
 </html>
