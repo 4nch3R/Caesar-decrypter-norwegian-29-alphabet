@@ -54,7 +54,7 @@
                 </div>
 
                 <p class="helper-text">
-                    Verktøyet vurderer eksakte ord, hele fraser og deltreff mot ordlisten.
+                    Eksakt treff gir 100 %. Deltreff regnes bare fra starten av ordet.
                 </p>
             </section>
 
@@ -93,6 +93,7 @@
         let dictionaryLineSet = new Set();
         let dictionaryWordSet = new Set();
         let dictionaryWordsArray = [];
+        let dictionaryWordsByFirstChar = new Map();
         let chartInstance = null;
 
         function normalizeText(text) {
@@ -137,6 +138,23 @@
             }
         }
 
+        function buildDictionaryIndexes() {
+            dictionaryWordsByFirstChar = new Map();
+
+            for (const word of dictionaryWordsArray) {
+                const firstChar = word[0];
+                if (!dictionaryWordsByFirstChar.has(firstChar)) {
+                    dictionaryWordsByFirstChar.set(firstChar, []);
+                }
+                dictionaryWordsByFirstChar.get(firstChar).push(word);
+            }
+
+            for (const [key, words] of dictionaryWordsByFirstChar.entries()) {
+                words.sort((a, b) => b.length - a.length);
+                dictionaryWordsByFirstChar.set(key, words);
+            }
+        }
+
         fetch("ordliste.txt")
             .then(response => {
                 if (!response.ok) {
@@ -163,6 +181,7 @@
 
                 dictionaryWordSet = wordSet;
                 dictionaryWordsArray = Array.from(dictionaryWordSet);
+                buildDictionaryIndexes();
             })
             .catch(error => {
                 console.error("Kunne ikke laste ordliste.txt:", error);
@@ -186,32 +205,135 @@
             }).join("");
         }
 
-        function getStrictPartialWordScore(word) {
-            const w = word.toUpperCase();
+        function longestPrefixMatchLength(word) {
+            if (!word) return 0;
 
-            if (w.length < 5) return 0;
+            const candidates = dictionaryWordsByFirstChar.get(word[0]) || [];
+            let best = 0;
 
-            let bestScore = 0;
+            for (const dictWord of candidates) {
+                const maxCheck = Math.min(word.length, dictWord.length);
+                let matchLen = 0;
 
-            for (const dictWord of dictionaryWordsArray) {
-                if (dictWord.length < 4) continue;
-                if (w === dictWord) continue;
-                if (Math.abs(w.length - dictWord.length) > 2) continue;
-                if (w[0] !== dictWord[0]) continue;
-                if (w[w.length - 1] !== dictWord[dictWord.length - 1]) continue;
+                while (matchLen < maxCheck && word[matchLen] === dictWord[matchLen]) {
+                    matchLen++;
+                }
 
-                if (w.includes(dictWord) || dictWord.includes(w)) {
-                    const coverage = Math.min(w.length, dictWord.length) / Math.max(w.length, dictWord.length);
-                    const score = coverage * 100;
+                if (matchLen > best) {
+                    best = matchLen;
+                }
 
-                    if (score > bestScore) {
-                        bestScore = score;
-                    }
+                if (best === word.length) {
+                    break;
                 }
             }
 
-            if (bestScore < 80) return 0;
-            return bestScore;
+            return best;
+        }
+
+        function getPrefixPartialScore(word) {
+            const w = word.toUpperCase();
+
+            if (!w || w.length === 0) return 0;
+
+            const longestPrefix = longestPrefixMatchLength(w);
+
+            if (longestPrefix === 0) return 0;
+            if (longestPrefix === w.length) return 100;
+
+            return (longestPrefix / w.length) * 100;
+        }
+
+        function segmentWordIntoDictionaryWords(word) {
+            const w = word.toUpperCase();
+            if (!w) return null;
+
+            if (dictionaryWordSet.has(w)) {
+                return [w];
+            }
+
+            const memo = new Map();
+
+            function solve(startIndex) {
+                if (startIndex === w.length) {
+                    return [];
+                }
+
+                if (memo.has(startIndex)) {
+                    return memo.get(startIndex);
+                }
+
+                const firstChar = w[startIndex];
+                const candidates = dictionaryWordsByFirstChar.get(firstChar) || [];
+
+                for (const candidate of candidates) {
+                    if (w.startsWith(candidate, startIndex)) {
+                        const rest = solve(startIndex + candidate.length);
+                        if (rest !== null) {
+                            const result = [candidate, ...rest];
+                            memo.set(startIndex, result);
+                            return result;
+                        }
+                    }
+                }
+
+                memo.set(startIndex, null);
+                return null;
+            }
+
+            const parts = solve(0);
+
+            if (!parts || parts.length < 2) {
+                return null;
+            }
+
+            return parts;
+        }
+
+        function scoreSingleWord(word) {
+            const w = word.toUpperCase();
+
+            if (!w) {
+                return {
+                    score: 0,
+                    exact: false,
+                    compoundExact: false,
+                    parts: null,
+                    prefixLetters: 0
+                };
+            }
+
+            if (dictionaryWordSet.has(w)) {
+                return {
+                    score: 100,
+                    exact: true,
+                    compoundExact: false,
+                    parts: [w],
+                    prefixLetters: w.length
+                };
+            }
+
+            const segmented = segmentWordIntoDictionaryWords(w);
+            if (segmented) {
+                return {
+                    score: 100,
+                    exact: true,
+                    compoundExact: true,
+                    parts: segmented,
+                    prefixLetters: w.length
+                };
+            }
+
+            const prefixLetters = longestPrefixMatchLength(w);
+            const prefixScore = getPrefixPartialScore(w);
+
+            return {
+                score: prefixScore,
+                exact: false,
+                compoundExact: false,
+                parts: null,
+                prefixLetters
+            };
         }
 
         function scoreCandidateText(text) {
@@ -242,60 +364,45 @@
                 };
             }
 
-            const allWordsAreExact = words.every(word => dictionaryWordSet.has(word));
-            if (allWordsAreExact) {
-                return {
-                    score: 100,
-                    exactLineMatch: false,
-                    allWordsExact: true,
-                    exactWords: words.length,
-                    partialWords: 0,
-                    totalWords: words.length,
-                    details: words.map(w => `${w} (100%)`)
-                };
-            }
-
             let totalLetters = 0;
-            let exactLetters = 0;
-            let partialBonus = 0;
+            let matchedLetters = 0;
             let exactWords = 0;
             let partialWords = 0;
             const details = [];
+            let allWordsExact = true;
 
             for (const word of words) {
                 const len = word.length;
                 totalLetters += len;
 
-                if (dictionaryWordSet.has(word)) {
+                const wordResult = scoreSingleWord(word);
+
+                if (wordResult.score === 100) {
                     exactWords++;
-                    exactLetters += len;
-                    details.push(`${word} (100%)`);
-                    continue;
-                }
+                    matchedLetters += len;
 
-                const partialScore = getStrictPartialWordScore(word);
-
-                if (partialScore > 0) {
+                    if (wordResult.compoundExact && wordResult.parts && wordResult.parts.length > 1) {
+                        details.push(`${word} (100% = ${wordResult.parts.join(" + ")})`);
+                    } else {
+                        details.push(`${word} (100%)`);
+                    }
+                } else if (wordResult.score > 0) {
                     partialWords++;
-                    partialBonus += len * (partialScore / 100) * 0.12;
-                    details.push(`${word} (${partialScore.toFixed(1)}%)`);
+                    matchedLetters += wordResult.prefixLetters;
+                    allWordsExact = false;
+                    details.push(`${word} (${wordResult.score.toFixed(1)}% fra start)`);
                 } else {
+                    allWordsExact = false;
                     details.push(`${word} (0%)`);
                 }
             }
 
-            let finalScore = 0;
-
-            if (totalLetters > 0) {
-                finalScore = ((exactLetters + partialBonus) / totalLetters) * 100;
-            }
-
-            if (finalScore > 100) finalScore = 100;
+            const finalScore = totalLetters > 0 ? (matchedLetters / totalLetters) * 100 : 0;
 
             return {
-                score: finalScore,
+                score: Math.min(finalScore, 100),
                 exactLineMatch: false,
-                allWordsExact: false,
+                allWordsExact,
                 exactWords,
                 partialWords,
                 totalWords: words.length,
@@ -370,7 +477,7 @@
                 <div class="result-summary">
                     <div class="section-header">
                         <h2>Mest sannsynlige dekryptering</h2>
-                        <p>Beste kandidat basert på ordliste og deltreff.</p>
+                        <p>Beste kandidat basert på ordliste og prefikstreff.</p>
                     </div>
 
                     <div class="best-result">
